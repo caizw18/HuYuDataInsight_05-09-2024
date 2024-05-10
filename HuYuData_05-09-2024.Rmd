@@ -1,0 +1,230 @@
+---
+title: "HuYuDataInsight LLC"
+author: "Zhaowei Cai"
+date: "2024-05-09"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+**(a)**
+```{r}
+library(urca)
+library(vars)
+library(quantmod)
+library(forecast)
+library(tseries)
+library(fGarch)
+library(stargazer)
+
+
+data(denmark)
+df.lev = denmark[,c('LRM','LRY','IBO','IDE','LPY')]
+m.lev  = as.matrix(df.lev)
+nr_lev = nrow(df.lev)
+ 
+# quarterly centered dummy variables
+dum_season = data.frame(yyyymm = denmark$ENTRY)
+substr.q = as.numeric(substring(denmark$ENTRY, 6,7))
+dum_season$Q2 = (substr.q==2)-1/4
+dum_season$Q3 = (substr.q==3)-1/4
+dum_season$Q4 = (substr.q==4)-1/4
+dum_season = dum_season[,-1]
+
+# visualization
+str.main = c(
+    'LRM=ln(real money M2)', 'LRY=ln(real income)',
+    'IBO=bond rate', 'IDE=bank deposit rate', 'LPY=ln(price deflator)')
+par(mfrow=c(3,2), mar=c(5,3,3,3))
+for(i in 1:5) {
+    matplot(m.lev[,i], axes=FALSE,
+        type=c('l'), col = c('blue'), 
+        main = str.main[i]) # plot the columns of one matrix m.lev
+    axis(2) # y axis
+    axis(1, at=seq_along(1:nrow(df.lev)),
+         labels=denmark$ENTRY, las=2)
+}
+```
+
+**(b)**
+```{r}
+##Check for the trend (the Augmented Dickey–Fuller (ADF) test)
+r1 = df.lev$LRM
+acf(r1)
+pacf(r1)
+adf.test(r1)
+summary(ur.df(r1, type='trend', lags=20, selectlags="BIC"))
+# drift+difference
+diffr1 = na.omit(diff(r1))
+fit1 = auto.arima(diffr1)
+summary(fit1)
+tsdiag(fit1)
+
+##Check for the trend (the Augmented Dickey–Fuller (ADF) test)
+r2 = df.lev$LRY
+acf(r2)
+pacf(r2)
+adf.test(r2)
+summary(ur.df(r2, type='trend', lags=20, selectlags="BIC"))
+# difference
+diffr2 = na.omit(diff(r2))
+fit2 = auto.arima(diffr2)
+summary(fit2)
+tsdiag(fit2)
+
+##Check for the trend (the Augmented Dickey–Fuller (ADF) test)
+r3 = df.lev$IBO
+acf(r3)
+pacf(r3)
+adf.test(r3)
+summary(ur.df(r3, type='trend', lags=20, selectlags="BIC"))
+# drift+tt+difference
+diffr3 = na.omit(diff(r3))
+summary(ur.df(diffr3, type='trend', lags=20, selectlags="BIC"))
+fit3 = auto.arima(diffr3)
+summary(fit3)
+tsdiag(fit3)
+
+##Check for the trend (the Augmented Dickey–Fuller (ADF) test)
+r4 = df.lev$IDE
+acf(r4)
+pacf(r4)
+adf.test(r4)
+summary(ur.df(r4, type='trend', lags=20, selectlags="BIC"))
+# drift+tt+difference
+diffr4 = na.omit(diff(r4))
+summary(ur.df(diffr4, type='trend', lags=20, selectlags="BIC"))
+fit4 = auto.arima(diffr4)
+summary(fit4)
+tsdiag(fit4)
+
+##Check for the trend (the Augmented Dickey–Fuller (ADF) test)
+r5 = df.lev$LPY
+acf(r5)
+pacf(r5)
+adf.test(r5)
+summary(ur.df(r5, type='trend', lags=20, selectlags="BIC"))
+diffr5 = na.omit(diff(r5))
+fit5 = auto.arima(diffr5)
+summary(fit5)
+tsdiag(fit5)
+```
+
+**(c)**
+```{r}
+res=residuals(fit1)
+shapiro.test(res)
+par(mfrow=c(2,1))
+hist(res)
+lines(density(res))
+qqnorm(res)          
+qqline(res)
+
+res=residuals(fit2)
+shapiro.test(res)
+par(mfrow=c(2,1))
+hist(res)
+lines(density(res))
+qqnorm(res)          
+qqline(res)
+
+res=residuals(fit3)
+shapiro.test(res)
+par(mfrow=c(2,1))
+hist(res)
+lines(density(res))
+qqnorm(res)          
+qqline(res)
+
+res=residuals(fit4)
+shapiro.test(res)
+par(mfrow=c(2,1))
+hist(res)
+lines(density(res))
+qqnorm(res)          
+qqline(res)
+
+res=residuals(fit5)
+shapiro.test(res)
+par(mfrow=c(2,1))
+hist(res)
+lines(density(res))
+qqnorm(res)          
+qqline(res)
+```
+
+**(d)**
+```{r}
+# LRM
+p1 <- forecast(fit1, h=3, level=0.95)
+last1 <- r1[length(r1)]
+(LRM1 <- last1+cumsum(p1$mean))
+# 95% CI:
+last1+cumsum(p1$lower) # lb
+last1+cumsum(p1$upper) # ub
+# LRY
+p2 <- forecast(fit2, h=3, level=0.95)
+last2 <- r2[length(r2)]
+(LRY1 <- last2+cumsum(p2$mean))
+# 95% CI:
+last2+cumsum(p2$lower) # lb
+last2+cumsum(p2$upper) # ub
+# IBO
+p3 <- forecast(fit3, h=3, level=0.95)
+last3 <- r3[length(r3)]
+(IBO1 <- last3+cumsum(p3$mean))
+# 95% CI:
+last3+cumsum(p3$lower) # lb
+last3+cumsum(p3$upper) # ub
+# IDE
+p4 <- forecast(fit4, h=3, level=0.95)
+last4 <- r4[length(r4)]
+(IDE1 <- last4+cumsum(p4$mean))
+# 95% CI:
+last4+cumsum(p4$lower) # lb
+last4+cumsum(p4$upper) # ub
+# LPY
+p5 <- forecast(fit5, h=3, level=0.95)
+last5 <- r5[length(r5)]
+(LPY1 <- last5+cumsum(p5$mean))
+# 95% CI:
+last5+cumsum(p5$lower) # lb
+last5+cumsum(p5$upper) # ub
+```
+
+2. Please (a) build the best VAR models using all five variables together. (b) Please be sure to check the integrated order, and make considerations for trend and seasonality. (c) Please check the residuals to ensure your model is a good fit. (d). Please use your best VAR model to make forecast for the next three quarters.
+
+```{r}
+df.diff = diff(as.matrix(df.lev), lag = 1)
+colnames(df.diff) = c('dLRM', 'dLRY', 'dIBO', 'dIDE', 'dLPY')
+m.diff = as.matrix(df.diff)
+# lag length
+VARselect(df.diff, lag.max = 4, type = 'const', season = 4)
+# estimation
+vare_diff = VAR(df.diff, p = 1, type = 'const', season = 4)
+summary(vare_diff)
+# residuals test
+serial.test(vare_diff)
+# forecast of differenced data
+varf_diff = predict(vare_diff, n.ahead = 3, ci = 0.95)
+# predictions & 95%CI
+(LRM2 <- last1+cumsum(varf_diff$fcst$dLRM[,1]))
+last1+cumsum(varf_diff$fcst$dLRM[,2]) # lb
+last1+cumsum(varf_diff$fcst$dLRM[,3]) # ub
+(LRY2 <- last2+cumsum(varf_diff$fcst$dLRY[,1]))
+last2+cumsum(varf_diff$fcst$dLRY[,2]) # lb
+last2+cumsum(varf_diff$fcst$dLRY[,3]) # ub
+(IBO2 <- last3+cumsum(varf_diff$fcst$dIBO[,1]))
+last3+cumsum(varf_diff$fcst$dIBO[,2]) # lb
+last3+cumsum(varf_diff$fcst$dIBO[,3]) # ub
+(IDE2 <- last4+cumsum(varf_diff$fcst$dIDE[,1]))
+last4+cumsum(varf_diff$fcst$dIDE[,2]) # lb
+last4+cumsum(varf_diff$fcst$dIDE[,3]) # ub
+(LPY2 <- last5+cumsum(varf_diff$fcst$dLPY[,1]))
+last5+cumsum(varf_diff$fcst$dLPY[,2]) # lb
+last5+cumsum(varf_diff$fcst$dLPY[,3]) # ub
+```
+3.
+we have already got forecast for the next 3 quarters based on two methods. If we know the true values of the following 3 quarters, we can compute the MSE to compare which one is better.
+
+```
